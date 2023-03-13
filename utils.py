@@ -16,7 +16,7 @@ class ImageLoader:
                 image_type = line
             else:
                 break
-        size = [int(x) for x in lines[idx].split()] if image_type != "" else []
+        size = [int(x) for x in lines[idx].split()][::-1] if image_type != "" else []
         image = ImageLoader._get_image(lines, size, idx, path, image_type)
         return image
 
