@@ -15,7 +15,8 @@ layout = [
     [sg.Column([[sg.Image(key="-IMAGE-")]], justification="center")],
 ]
 
-window = sg.Window("tinyGIMP", layout, size=(800, 600))
+window = sg.Window("tinyGIMP", layout, size=(800, 600), resizable=True)
+
 filename, save_name = None, None
 processor = None
 
@@ -66,6 +67,7 @@ while True:
 
     elif event == "Sum" or event == "Subtraction" or event == "Multiplication":
         filename_calc = sg.popup_get_file('image to open', no_window=True)
+        
         if filename_calc is not None:
             img_to_calc = ImageLoader.load(filename_calc)
             loaded_image = processor.calculations(img_to_calc, event.lower())

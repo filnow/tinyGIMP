@@ -16,7 +16,7 @@ class ImageLoader:
                 image_type = line
             else:
                 break
-        size = [int(x) for x in lines[idx].split()][::-1] if image_type != "" else []
+        size = [int(x) for x in lines[idx].split()] if image_type != "" else []
         image = ImageLoader._get_image(lines, size, idx, path, image_type)
         return image
 
@@ -27,7 +27,8 @@ class ImageLoader:
                    path: str, 
                    image_type: str) -> np.ndarray:
         if image_type == 'P1':
-            image = np.asarray([(int(x)-1)*-255 for row in lines[idx+1:] for x in row]).reshape(size)
+            print(lines[idx+1:])
+            image = np.asarray([(int(x)-1)*-255 for row in lines[idx+1:] for x in row.replace(' ', '')]).reshape(size)
         elif image_type == 'P2':
             image = np.asarray([int(x) for x in lines[idx+2:]]).reshape(size)
         elif image_type == 'P3':
@@ -44,7 +45,7 @@ class ImageProcessor:
         self.img = img
     
     def desaturate(self) -> np.ndarray:
-        return cv2.cvtColor(self.img, cv2.COLOR_BGR2GRAY)
+        return cv2.cvtColor(self.img.astype(np.float32), cv2.COLOR_BGR2GRAY)
 
     def negative(self) -> np.ndarray:
         lut: np.ndarray = np.arange(256)[::-1]
@@ -89,6 +90,7 @@ class ImageProcessor:
         elif operation == "multiplication":
             return cv2.multiply(self.img, second_img)
         
+    #NOTE: monochrome should be a interface to drawing a functions        
     def monochrome(self) -> np.ndarray:
         #NOTE: We use the YIQ transformation
         #https://en.wikipedia.org/wiki/YIQ
