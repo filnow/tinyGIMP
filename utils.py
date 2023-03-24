@@ -8,15 +8,16 @@ class ImageLoader:
     @staticmethod
     def load(path: str) -> np.ndarray:
         image_type = ""
-        lines = [line.replace("\n", "") for line in open(path, encoding='latin1').readlines()]
+        with open(path, encoding='latin') as f:
+            lines = [x for x in f.read().split()]
         for idx, line in enumerate(lines):
-            if line[0] == "#":
+            if not line.isdigit():
+                if line[0] == "P":
+                    image_type = line
                 continue
-            elif line[0] == "P":
-                image_type = line
             else:
                 break
-        size = [int(x) for x in lines[idx].split()] if image_type != "" else []
+        size = [int(lines[idx]), int(lines[idx+1])][::-1] if image_type != "" else []
         image = ImageLoader._get_image(lines, size, idx, path, image_type)
         return image
 
@@ -26,13 +27,13 @@ class ImageLoader:
                    idx: int, 
                    path: str, 
                    image_type: str) -> np.ndarray:
+        
         if image_type == 'P1':
-            print(lines[idx+1:])
-            image = np.asarray([(int(x)-1)*-255 for row in lines[idx+1:] for x in row.replace(' ', '')]).reshape(size)
+            image = np.asarray([(int(x)-1)*-255 for x in lines[idx+2:] if x.isdigit()]).reshape(size)
         elif image_type == 'P2':
-            image = np.asarray([int(x) for x in lines[idx+2:]]).reshape(size)
+            image = np.asarray([int(x) for x in lines[idx+3:] if x.isdigit()]).reshape(size)
         elif image_type == 'P3':
-            image = np.asarray([int(x) for x in lines[idx+2:]]).reshape(*size, 3)
+            image = np.asarray([int(x) for x in lines[idx+3:] if x.isdigit()]).reshape(*size, 3)
             #NOTE: Swap the red and blue channels
             image[:, :, [0, 2]] = image[:, :, [2, 0]]
         else:
@@ -63,9 +64,12 @@ class ImageProcessor:
             return np.take(lut, self.img).astype(np.uint8)
 
     def brightness(self, value: int) -> np.ndarray:
-        lut: np.ndarray = np.arange(256) + value
+        if len(self.img.shape) == 2: # grayscale image
+            lut: np.ndarray = np.arange(256) + value
+            return np.clip(lut[self.img], 0, 255).astype(np.uint8)
         
-        hsv = cv2.cvtColor(self.img, cv2.COLOR_BGR2HSV).astype(np.float32)
+        lut: np.ndarray = np.arange(256) + value
+        hsv = cv2.cvtColor(self.img.astype(np.uint8), cv2.COLOR_BGR2HSV).astype(np.float32)
         hsv[:, :, 2] = np.take(lut, hsv[:, :, 2].astype(np.int8)).astype(np.float32)
         hsv[:, :, 2] = np.clip(hsv[:, :, 2], 0, 255)
 
@@ -73,8 +77,7 @@ class ImageProcessor:
 
     def saturation(self, percent: float) -> np.ndarray:
         lut: np.ndarray = np.arange(256) * percent
-        
-        hsv = cv2.cvtColor(self.img, cv2.COLOR_BGR2HSV).astype(np.float32)
+        hsv = cv2.cvtColor(self.img.astype(np.uint8), cv2.COLOR_BGR2HSV).astype(np.float32)
         hsv[:, :, 1] = np.take(lut, hsv[:, :, 1].astype(np.int8)).astype(np.float32)
         hsv[:, :, 1] = np.clip(hsv[:, :, 1], 0, 255)
         
@@ -90,12 +93,5 @@ class ImageProcessor:
         elif operation == "multiplication":
             return cv2.multiply(self.img, second_img)
         
-    #NOTE: monochrome should be a interface to drawing a functions        
-    def monochrome(self) -> np.ndarray:
-        #NOTE: We use the YIQ transformation
-        #https://en.wikipedia.org/wiki/YIQ
-        yiq = np.dot(self.img, [[0.299, 0.587, 0.114], 
-                                [-0.596, -0.275, 0.321], 
-                                [0.212, -0.523, 0.311]])
-        return yiq.astype(np.uint8)
+
 

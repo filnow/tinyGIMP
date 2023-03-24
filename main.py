@@ -10,7 +10,6 @@ layout = [
                         "Saturation", 
                         "Brightness",
                         "Calculations", ["Sum", "Subtraction", "Multiplication"],
-                        "Monochrome",
                         ]]])],
     [sg.Column([[sg.Image(key="-IMAGE-")]], justification="center")],
 ]
@@ -43,8 +42,11 @@ while True:
                 sg.popup("File saved in output folder")
     
     elif event == "Desaturate":
-        loaded_image = processor.desaturate()
-        window["-IMAGE-"].update(data=cv2.imencode('.png', loaded_image)[1].tobytes())
+        if len(loaded_image.shape) == 2:
+            sg.popup("Image is already in grayscale")
+        else:
+            loaded_image = processor.desaturate()
+            window["-IMAGE-"].update(data=cv2.imencode('.png', loaded_image)[1].tobytes())
 
     elif event == "Negative":
         loaded_image = processor.negative()
@@ -56,9 +58,12 @@ while True:
         window["-IMAGE-"].update(data=cv2.imencode('.png', loaded_image)[1].tobytes())
     
     elif event == "Saturation":
-        percent = sg.popup_get_text("Enter a percent for the saturation", title="Saturation")
-        loaded_image = processor.saturation(float(percent))
-        window["-IMAGE-"].update(data=cv2.imencode('.png', loaded_image)[1].tobytes())
+        if len(loaded_image.shape) == 2:
+            sg.popup("Image is in grayscale")
+        else:
+            percent = sg.popup_get_text("Enter a percent for the saturation", title="Saturation")
+            loaded_image = processor.saturation(float(percent))
+            window["-IMAGE-"].update(data=cv2.imencode('.png', loaded_image)[1].tobytes())
 
     elif event == "Brightness":
         value = sg.popup_get_text("Enter a value for the brightness", title="Brightness")
@@ -72,10 +77,5 @@ while True:
             img_to_calc = ImageLoader.load(filename_calc)
             loaded_image = processor.calculations(img_to_calc, event.lower())
             window["-IMAGE-"].update(data=cv2.imencode('.png', loaded_image)[1].tobytes())
-
-    elif event == "Monochrome":
-        loaded_image = processor.monochrome()
-        window["-IMAGE-"].update(data=cv2.imencode('.png', loaded_image)[1].tobytes())
-
 
 window.close()
