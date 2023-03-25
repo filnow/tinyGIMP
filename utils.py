@@ -12,12 +12,12 @@ class ImageLoader:
             lines = [x for x in f.read().split()]
         for idx, line in enumerate(lines):
             if not line.isdigit():
-                if line[0] == "P":
+                if line in ['P1', 'P2', 'P3']:
                     image_type = line
                 continue
             else:
                 break
-        size = [int(lines[idx]), int(lines[idx+1])][::-1] if image_type != "" else []
+        size = [int(lines[idx+1]), int(lines[idx])] if image_type != "" else []
         image = ImageLoader._get_image(lines, size, idx, path, image_type)
         return image
 
@@ -27,9 +27,8 @@ class ImageLoader:
                    idx: int, 
                    path: str, 
                    image_type: str) -> np.ndarray:
-        
         if image_type == 'P1':
-            image = np.asarray([(int(x)-1)*-255 for x in lines[idx+2:] if x.isdigit()]).reshape(size)
+            image = np.asarray([(int(x)-1)*-255 for row in lines[idx+2:] for x in row if row.isdigit()]).reshape(size)
         elif image_type == 'P2':
             image = np.asarray([int(x) for x in lines[idx+3:] if x.isdigit()]).reshape(size)
         elif image_type == 'P3':
@@ -93,5 +92,47 @@ class ImageProcessor:
         elif operation == "multiplication":
             return cv2.multiply(self.img, second_img)
         
+class Histogram:
+    def __init__(self) -> None:
+        self.histSize = 256
+        self.histRange = (0, 256)
+        self.hist_w = 280
+        self.hist_h = 350
+        self.bin_w = int(round(self.hist_w/self.histSize))
+    
+    def rgb(self, img: np.ndarray) -> np.ndarray:
+        histImage = np.full((self.hist_h, self.hist_w, 3), 23, dtype=np.uint8)
+        bgr = cv2.split(img)
+        b_hist = cv2.calcHist(bgr, [0], None, [self.histSize], self.histRange, accumulate=False)
+        g_hist = cv2.calcHist(bgr, [1], None, [self.histSize], self.histRange, accumulate=False)
+        r_hist = cv2.calcHist(bgr, [2], None, [self.histSize], self.histRange, accumulate=False)
 
+        cv2.normalize(b_hist, b_hist, alpha=0, beta=self.hist_h, norm_type=cv2.NORM_MINMAX)
+        cv2.normalize(g_hist, g_hist, alpha=0, beta=self.hist_h, norm_type=cv2.NORM_MINMAX)
+        cv2.normalize(r_hist, r_hist, alpha=0, beta=self.hist_h, norm_type=cv2.NORM_MINMAX)
 
+        for i in range(1, self.histSize):
+            cv2.line(histImage, (self.bin_w*(i-1), self.hist_h - int(b_hist[i-1]) ),
+                    (self.bin_w*(i), self.hist_h - int(b_hist[i]) ),
+                    ( 255, 0, 0), thickness=2)
+            cv2.line(histImage, (self.bin_w*(i-1), self.hist_h - int(g_hist[i-1]) ),
+                    (self.bin_w*(i), self.hist_h - int(g_hist[i]) ),
+                    ( 0, 255, 0), thickness=2)
+            cv2.line(histImage, (self.bin_w*(i-1), self.hist_h - int(r_hist[i-1]) ),
+                    (self.bin_w*(i), self.hist_h - int(r_hist[i]) ),
+                    ( 0, 0, 255), thickness=2)
+        
+        return histImage
+    
+    def grayscale(self, img: np.ndarray) -> np.ndarray:
+        histImage = np.full((self.hist_h, self.hist_w, 3), 23, dtype=np.uint8)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        gray_hist = cv2.calcHist([gray], [0], None, [self.histSize], self.histRange, accumulate=False)
+        cv2.normalize(gray_hist, gray_hist, alpha=0, beta=self.hist_h, norm_type=cv2.NORM_MINMAX)
+
+        for i in range(1, self.histSize):
+            cv2.line(histImage, (self.bin_w*(i-1), self.hist_h - int(gray_hist[i-1]) ),
+                    (self.bin_w*(i), self.hist_h - int(gray_hist[i]) ),
+                    ( 255, 255, 255), thickness=2)
+        
+        return histImage
