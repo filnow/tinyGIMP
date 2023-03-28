@@ -45,7 +45,7 @@ class ImageProcessor:
         self.img = img
     
     def desaturate(self) -> np.ndarray:
-        return cv2.cvtColor(self.img.astype(np.float32), cv2.COLOR_BGR2GRAY)
+        return cv2.cvtColor(self.img.astype(np.float32), cv2.COLOR_BGR2GRAY).astype(np.uint8)
 
     def negative(self) -> np.ndarray:
         lut: np.ndarray = np.arange(256)[::-1]
@@ -91,7 +91,8 @@ class ImageProcessor:
             return cv2.subtract(self.img, second_img)
         elif operation == "multiplication":
             return cv2.multiply(self.img, second_img)
-        
+
+#NOTE: resources: https://docs.opencv.org/3.4/d8/dbc/tutorial_histogram_calculation.html
 class Histogram:
     def __init__(self) -> None:
         self.histSize = 256
@@ -102,6 +103,8 @@ class Histogram:
     
     def rgb(self, img: np.ndarray) -> np.ndarray:
         histImage = np.full((self.hist_h, self.hist_w, 3), 23, dtype=np.uint8)
+        if len(img.shape) != 3:
+            return histImage
         bgr = cv2.split(img)
         b_hist = cv2.calcHist(bgr, [0], None, [self.histSize], self.histRange, accumulate=False)
         g_hist = cv2.calcHist(bgr, [1], None, [self.histSize], self.histRange, accumulate=False)
@@ -126,7 +129,10 @@ class Histogram:
     
     def grayscale(self, img: np.ndarray) -> np.ndarray:
         histImage = np.full((self.hist_h, self.hist_w, 3), 23, dtype=np.uint8)
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        if len(img.shape) != 3:
+            gray = img
+        else:
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         gray_hist = cv2.calcHist([gray], [0], None, [self.histSize], self.histRange, accumulate=False)
         cv2.normalize(gray_hist, gray_hist, alpha=0, beta=self.hist_h, norm_type=cv2.NORM_MINMAX)
 
@@ -136,3 +142,53 @@ class Histogram:
                     ( 255, 255, 255), thickness=2)
         
         return histImage
+
+    def stretch(self, img: np.ndarray) -> np.ndarray:
+        if len(img.shape) != 3:
+            lut = np.clip((256/(np.max(img) - np.min(img))) * (np.arange(256)-np.min(img)), 0, 255)
+
+            return np.take(lut, img).astype(np.uint8)
+        else: 
+            bgr = cv2.split(img)
+            stretched = []
+            for channel in bgr:
+                lut = np.clip(256 / (np.max(channel) - np.min(channel)) * (np.arange(256) - np.min(channel)), 0, 255)
+                stretched.append(np.take(lut, channel).astype(np.uint8))
+
+            return np.array(stretched).transpose([1, 2, 0])
+
+    #NOTE resources: https://towardsdatascience.com/histogram-equalization-a-simple-way-to-improve-the-contrast-of-your-image-bcd66596d815
+    def equalize(self, img: np.ndarray):
+        if (img.shape) == 3:
+            b, g, r = cv2.split(img)
+            channels = [b, g, r]
+            for i, channel in enumerate(channels):
+                hist, _ = np.histogram(channel.flatten(), 256, [0, 256])
+                cdf = hist.cumsum() / hist.sum()
+                cdf_normalized = (cdf - cdf.min()) / (1 - cdf.min())
+                cdf_mapped = (cdf_normalized * 255).astype('uint8')
+                channels[i] = cdf_mapped[channel]
+
+            return cv2.merge(channels)
+        else:
+            h_gr, _ = np.histogram(img.flatten(), 256, [0, 256])
+            cdf_gr = np.cumsum(h_gr)
+            cdf_m_gr = np.ma.masked_equal(cdf_gr, 0)
+            cdf_m_gr = (cdf_m_gr - cdf_m_gr.min()) * 255 / (cdf_m_gr.max() - cdf_m_gr.min())
+            cdf_final_b = np.ma.filled(cdf_m_gr, 0).astype('uint8')
+            
+            return cdf_final_b[img]
+
+
+
+
+
+
+
+
+
+
+
+
+
+

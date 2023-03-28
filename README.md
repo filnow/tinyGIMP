@@ -13,3 +13,5 @@ The goal is to create a simple window application with all essential algorithms 
 
 * Adding the following features for images: desaturation, negative, contrast, brightness, saturation, sum, subtraction, multiplication, monochrome transformations
 
+
+* Generating, stretching and equalizing a histogram of a image both in grayscale and in RGB
