@@ -1,6 +1,8 @@
-from utils import ImageProcessor, ImageLoader
 import unittest
+import sys, os
+sys.path.append(os.path.abspath(os.path.join('.')))
 
+from utils import ImageProcessor, ImageLoader
 
 class TestImageProcessor_ppm(unittest.TestCase):
 	def __init__(self, methodName: str = "runTest") -> None:

@@ -1,5 +1,8 @@
-from utils import ImageLoader
+import os,sys
 import unittest
+sys.path.append(os.path.abspath(os.path.join('.')))
+
+from utils import ImageLoader
 
 
 class TestImageLoader(unittest.TestCase):

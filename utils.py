@@ -180,6 +180,92 @@ class Histogram:
             return cdf_final_b[img]
 
 
+class Conv:
+    def __init__(self, kernel):
+        self.kernel = np.array(kernel)
+    #SLOW
+    # def apply(self, image):
+
+    #     pad = np.array([np.pad(image[:, :, i], 
+    #                     self.radius, mode='constant', 
+    #                     constant_values=0) for i in range(image.shape[2])]).transpose([1, 2, 0])
+    #     result = np.zeros_like(image)
+
+    #     for k in range(image.shape[2]):
+    #         for i in range(image.shape[0]):
+    #             for j in range(image.shape[1]):
+    #                 result[i, j, k] = np.sum(self.kernel * pad[i:i+self.size, j:j+self.size, k])
+
+    #     return result
+    
+    def uniform_blur(self, image: np.ndarray, kernel_size: int=3):
+        return cv2.blur(image, (kernel_size, kernel_size))
+    
+    def gaussian_blur(self, image: np.ndarray, kernel_size: int=3, sigma: int=0):
+        return cv2.GaussianBlur(image, (kernel_size, kernel_size), sigma)
+
+    def sharpen(self, image: np.ndarray, kernel_size: int=3, sigma: int=0):
+        blurred = self.gaussian_blur(image, kernel_size, sigma)
+        return cv2.addWeighted(image, 1.5, blurred, -0.5, 0)
+
+    def edge_detection(self, 
+                       image: np.ndarray, 
+                       id: str, 
+                       kernel_size: int=3, 
+                       sigma: int=0):
+        if id == 'sobel':
+            return self._sobel(image)
+        elif id == 'previtt':
+            return self._previtt(image)
+        elif id == 'roberts':
+            return self._roberts(image)
+        elif id == 'laplacian':
+            return self._laplacian(image)
+        elif id == 'log':
+            return self._log(image, kernel_size, sigma)
+
+    def custom(self, image: np.ndarray):
+        return cv2.filter2D(image, -1, self.kernel)
+
+    def _sobel(self, image: np.ndarray):
+        sobelx = cv2.Sobel(image, cv2.CV_64F, 1, 0, ksize=3)
+        sobely = cv2.Sobel(image, cv2.CV_64F, 0, 1, ksize=3)
+
+        abs_grad_x = cv2.convertScaleAbs(sobelx)
+        abs_grad_y = cv2.convertScaleAbs(sobely)
+
+        grad = cv2.addWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0)
+
+        return grad
+    
+    def _previtt(self, image: np.ndarray):
+        kernel_x = np.array([[-1, 0, 1], [-1, 0, 1], [-1, 0, 1]])
+        kernel_y = np.array([[1, 1, 1], [0, 0, 0], [-1, -1, -1]])
+
+        filter_x = cv2.filter2D(image, -1, kernel_x)
+        filter_y = cv2.filter2D(image, -1, kernel_y)
+
+        return cv2.addWeighted(filter_x, 0.5, filter_y, 0.5, 0).astype(np.uint8)
+    
+    def _roberts(self, image: np.ndarray):
+        kernel_x = np.array([[0, 1], [-1, 0]])
+        kernel_y = np.array([[1, 0], [0, -1]])
+        
+        filter_x = cv2.filter2D(image, -1, kernel_x)
+        filter_y = cv2.filter2D(image, -1, kernel_y)
+        
+        return cv2.addWeighted(filter_x, 0.5, filter_y, 0.5, 0).astype(np.uint8)
+
+    def _laplacian(self, image: np.ndarray):
+        return cv2.Laplacian(image, cv2.CV_64F).astype(np.uint8)
+    
+    def _log(self, image: np.ndarray, kernel_size: int=3, sigma: int=0):
+        blur = self.gaussian_blur(image, kernel_size, sigma)
+        return cv2.Laplacian(blur, cv2.CV_64F).astype(np.uint8)
+    
+
+
+
 
 
 

@@ -1,6 +1,6 @@
 import PySimpleGUI as sg
 import cv2
-from utils import ImageLoader, ImageProcessor, Histogram
+from utils import ImageLoader, ImageProcessor, Histogram, Conv
 import numpy as np
 
 IMAGE_SIZE = (800, 800)
@@ -9,6 +9,7 @@ ORGINAL_SIZE = (800, 400)
 
 filename, save_name = None, None
 processor, histogram = None, None
+filtr = None
 loaded_image = None
 
 sg.theme('DarkGrey4')
@@ -61,7 +62,12 @@ layout = [
                         "Brightness",
                         "Calculations", ["Sum", "Subtraction", "Multiplication"],
                         ]],
-              ["Histogram", ["Stretch", "Equalize"]]
+              ["Histogram", ["Stretch", "Equalize"]],
+              ["Filters", ["Blur", ["Uniform", "Gaussian"],
+                           "Sharpen", 
+                           "Edge detection", ["Sobel", "Previtt", "Roberts", "Laplacian", "LoG"],
+                           "Custom",
+                        ]]
               ])],
     [
         sg.Frame("Main image", layout_image, size=(800, 900), title_location=sg.TITLE_LOCATION_TOP),
@@ -89,6 +95,7 @@ while True:
                 orginal = loaded_image
             processor = ImageProcessor(loaded_image)
             histogram = Histogram()
+            filtr = Conv([[1,2,1],[2,4,2],[1,2,1]])
             upadate_window(window, loaded_image, histogram, open=True)
         else:
             continue
@@ -150,6 +157,50 @@ while True:
         elif event == "Equalize":
             loaded_image = histogram.equalize(processor.img)
             upadate_window(window, loaded_image, histogram)
+        
+        elif event == "Uniform":
+            kernel = sg.popup_get_text("Enter a kernel size", title="Uniform blur")
+            if kernel is None: continue
+
+            loaded_image = filtr.uniform_blur(loaded_image, kernel)
+            upadate_window(window, loaded_image, histogram)
+        
+        elif event == "Gaussian":
+            kernel = sg.popup_get_text("Enter a kernel size", title="Gaussian blur")
+            if kernel is None: continue
+            sigma = sg.popup_get_text("Enter a sigma value", title="Gaussian blur")
+            if sigma is None: continue
+
+            loaded_image = filtr.gaussian_blur(loaded_image, int(kernel), sigma)
+            upadate_window(window, loaded_image, histogram)
+
+        elif event == "Sharpen":
+            kernel = sg.popup_get_text("Enter a kernel size", title="Sharpen")
+            if kernel is None: continue
+            sigma = sg.popup_get_text("Enter a sigma value", title="Sharpen")
+            if sigma is None: continue
+        
+            loaded_image = filtr.sharpen(loaded_image, int(kernel), sigma)
+            upadate_window(window, loaded_image, histogram)
+        
+        elif event == "Sobel" or event == "Previtt" or event == "Roberts" or event == "Laplacian":
+            gray = cv2.cvtColor(loaded_image, cv2.COLOR_BGR2GRAY)
+            
+            loaded_image = filtr.edge_detection(gray, event.lower(), int(kernel))
+            upadate_window(window, loaded_image, histogram)
+
+        elif event == "LoG":
+            kernel = sg.popup_get_text("Enter a kernel size", title="LoG")
+            if kernel is None: continue
+            sigma = sg.popup_get_text("Enter a sigma", title="LoG")
+            if sigma is None: continue
+
+            loaded_image = filtr.edge_detection(loaded_image, event.lower(), int(kernel), sigma)
+            upadate_window(window, loaded_image, histogram)
+        
+        elif event == "Custom":
+            #TODO implement option for custom kernel
+            pass
 
         processor.img = loaded_image
     else:
