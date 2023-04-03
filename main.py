@@ -9,8 +9,7 @@ ORGINAL_SIZE = (800, 400)
 
 filename, save_name = None, None
 processor, histogram = None, None
-filtr = None
-loaded_image = None
+filtr, loaded_image = None, None
 
 sg.theme('DarkGrey4')
 
@@ -75,13 +74,19 @@ layout = [
     ],
 ]
 
-window = sg.Window("tinyGIMP", layout, size=WINDOW_SIZE)
+window, window_custom = sg.Window("tinyGIMP", layout, size=WINDOW_SIZE, finalize=True), None
 
 while True:
     event, values = window.read()
 
-    if event == "Exit" or event == sg.WIN_CLOSED:
-        break
+    if event == sg.WIN_CLOSED or event == 'Exit':
+        window.close()
+        #NOTE if closing win_custom, mark as closed
+        if window == window_custom:  
+            window_custom = None
+        #NOTE if closing win, exit program
+        elif window == window:  
+            break
     
     elif event == "Open":
         filename = sg.popup_get_file('image to open', no_window=True)
@@ -95,10 +100,11 @@ while True:
                 orginal = loaded_image
             processor = ImageProcessor(loaded_image)
             histogram = Histogram()
-            filtr = Conv([[1,2,1],[2,4,2],[1,2,1]])
+            filtr = Conv()
             upadate_window(window, loaded_image, histogram, open=True)
         else:
             continue
+
     if loaded_image is not None:
         if event == "Save":
             if filename is None:
@@ -123,6 +129,7 @@ while True:
         elif event == "Linear" or event == "Log" or event == "Power":
             factor = sg.popup_get_text("Enter a factor for the contrast", title="Contrast")
             if factor is None: continue
+            
             loaded_image = processor.contrast(float(factor), event.lower())
             upadate_window(window, loaded_image, histogram)
 
@@ -132,12 +139,14 @@ while True:
             else:
                 percent = sg.popup_get_text("Enter a percent for the saturation (0, 1)", title="Saturation")
                 if percent is None: continue
+                
                 loaded_image = processor.saturation(float(percent))
                 upadate_window(window, loaded_image, histogram)
 
         elif event == "Brightness":
             value = sg.popup_get_text("Enter a value to add or subtract from brightness (-255, 255)", title="Brightness")
             if value is None: continue
+            
             loaded_image = processor.brightness(int(value))
             upadate_window(window, loaded_image, histogram)
 
@@ -147,6 +156,7 @@ while True:
             if filename_calc is not None:
                 img_to_calc = ImageLoader.load(filename_calc)
                 if img_to_calc is None: continue
+                
                 loaded_image = processor.calculations(img_to_calc, event.lower())
                 upadate_window(window, loaded_image, histogram)
 
@@ -159,48 +169,62 @@ while True:
             upadate_window(window, loaded_image, histogram)
         
         elif event == "Uniform":
-            kernel = sg.popup_get_text("Enter a kernel size", title="Uniform blur")
+            kernel = int(sg.popup_get_text("Enter a kernel size", title="Uniform blur"))
             if kernel is None: continue
 
             loaded_image = filtr.uniform_blur(loaded_image, kernel)
             upadate_window(window, loaded_image, histogram)
         
         elif event == "Gaussian":
-            kernel = sg.popup_get_text("Enter a kernel size", title="Gaussian blur")
+            kernel = int(sg.popup_get_text("Enter a kernel size", title="Gaussian blur"))
             if kernel is None: continue
-            sigma = sg.popup_get_text("Enter a sigma value", title="Gaussian blur")
+            sigma = float(sg.popup_get_text("Enter a sigma value", title="Gaussian blur"))
             if sigma is None: continue
 
-            loaded_image = filtr.gaussian_blur(loaded_image, int(kernel), sigma)
+            loaded_image = filtr.gaussian_blur(loaded_image, kernel, sigma)
             upadate_window(window, loaded_image, histogram)
 
         elif event == "Sharpen":
-            kernel = sg.popup_get_text("Enter a kernel size", title="Sharpen")
+            kernel = int(sg.popup_get_text("Enter a kernel size", title="Sharpen"))
             if kernel is None: continue
-            sigma = sg.popup_get_text("Enter a sigma value", title="Sharpen")
+            sigma = float(sg.popup_get_text("Enter a sigma value", title="Sharpen"))
             if sigma is None: continue
         
-            loaded_image = filtr.sharpen(loaded_image, int(kernel), sigma)
+            loaded_image = filtr.sharpen(loaded_image, kernel, sigma)
             upadate_window(window, loaded_image, histogram)
         
         elif event == "Sobel" or event == "Previtt" or event == "Roberts" or event == "Laplacian":
+            kernel = int(sg.popup_get_text("Enter a kernel size", title="LoG"))
             gray = cv2.cvtColor(loaded_image, cv2.COLOR_BGR2GRAY)
             
-            loaded_image = filtr.edge_detection(gray, event.lower(), int(kernel))
+            loaded_image = filtr.edge_detection(gray, event.lower(), kernel)
             upadate_window(window, loaded_image, histogram)
 
         elif event == "LoG":
-            kernel = sg.popup_get_text("Enter a kernel size", title="LoG")
+            kernel = int(sg.popup_get_text("Enter a kernel size", title="LoG"))
             if kernel is None: continue
-            sigma = sg.popup_get_text("Enter a sigma", title="LoG")
+            sigma = float(sg.popup_get_text("Enter a sigma", title="LoG"))
             if sigma is None: continue
 
-            loaded_image = filtr.edge_detection(loaded_image, event.lower(), int(kernel), sigma)
+            loaded_image = filtr.edge_detection(loaded_image, event.lower(), kernel, sigma)
             upadate_window(window, loaded_image, histogram)
         
-        elif event == "Custom":
-            #TODO implement option for custom kernel
-            pass
+        elif event == "Custom" and not window_custom:
+            kernel= int(sg.popup_get_text("Enter a kernel size", title="Custom"))
+            
+            layer_custom = [[sg.Column([[sg.Push(), sg.Input(0.0, key=key, size=(5, 5))] for key in range(kernel)],
+                                   pad=(5, 10), key='STATS') for _ in range(kernel)], [sg.Push(), sg.Button('Apply')]]
+            
+            window_custom = sg.Window("Custom kernel", layer_custom, size=(70*kernel,40*kernel+30), finalize=True)
+            _, values = window_custom.read()
+            
+            filtr.kernel = np.asarray(list(map(lambda x: float(x[1]),values.items()))).reshape((kernel, kernel)).T
+            
+            window_custom.close()
+            window_custom = None
+
+            loaded_image = filtr.custom(loaded_image)
+            upadate_window(window, loaded_image, histogram)
 
         processor.img = loaded_image
     else:

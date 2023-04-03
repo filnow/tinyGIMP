@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 import cv2
 import numpy as np
 
@@ -181,30 +181,16 @@ class Histogram:
 
 
 class Conv:
-    def __init__(self, kernel):
+    def __init__(self, kernel: Optional[List[List[int]]]=None):
         self.kernel = np.array(kernel)
-    #SLOW
-    # def apply(self, image):
 
-    #     pad = np.array([np.pad(image[:, :, i], 
-    #                     self.radius, mode='constant', 
-    #                     constant_values=0) for i in range(image.shape[2])]).transpose([1, 2, 0])
-    #     result = np.zeros_like(image)
-
-    #     for k in range(image.shape[2]):
-    #         for i in range(image.shape[0]):
-    #             for j in range(image.shape[1]):
-    #                 result[i, j, k] = np.sum(self.kernel * pad[i:i+self.size, j:j+self.size, k])
-
-    #     return result
-    
     def uniform_blur(self, image: np.ndarray, kernel_size: int=3):
         return cv2.blur(image, (kernel_size, kernel_size))
     
-    def gaussian_blur(self, image: np.ndarray, kernel_size: int=3, sigma: int=0):
+    def gaussian_blur(self, image: np.ndarray, kernel_size: int=3, sigma: float=0):
         return cv2.GaussianBlur(image, (kernel_size, kernel_size), sigma)
 
-    def sharpen(self, image: np.ndarray, kernel_size: int=3, sigma: int=0):
+    def sharpen(self, image: np.ndarray, kernel_size: int=3, sigma: float=0):
         blurred = self.gaussian_blur(image, kernel_size, sigma)
         return cv2.addWeighted(image, 1.5, blurred, -0.5, 0)
 
@@ -225,7 +211,7 @@ class Conv:
             return self._log(image, kernel_size, sigma)
 
     def custom(self, image: np.ndarray):
-        return cv2.filter2D(image, -1, self.kernel)
+        return cv2.filter2D(src=image, ddepth=-1, kernel=self.kernel)
 
     def _sobel(self, image: np.ndarray):
         sobelx = cv2.Sobel(image, cv2.CV_64F, 1, 0, ksize=3)
@@ -259,7 +245,7 @@ class Conv:
     def _laplacian(self, image: np.ndarray):
         return cv2.Laplacian(image, cv2.CV_64F).astype(np.uint8)
     
-    def _log(self, image: np.ndarray, kernel_size: int=3, sigma: int=0):
+    def _log(self, image: np.ndarray, kernel_size: int=3, sigma: float=0):
         blur = self.gaussian_blur(image, kernel_size, sigma)
         return cv2.Laplacian(blur, cv2.CV_64F).astype(np.uint8)
     

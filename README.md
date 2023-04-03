@@ -15,3 +15,6 @@ The goal is to create a simple window application with all essential algorithms 
 
 
 * Generating, stretching and equalizing a histogram of a image both in grayscale and in RGB
+
+
+* Creating a class that allows to define custom convolution mask, adding filters: uniform blur, gaussian blur, sharpen, Sobel, Previtt, Roberts, Laplacian, LoG
