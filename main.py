@@ -9,7 +9,8 @@ ORGINAL_SIZE = (800, 400)
 
 filename, save_name = None, None
 processor, histogram = None, None
-filtr, loaded_image = None, None
+filtr = None
+loaded_image = None
 
 sg.theme('DarkGrey4')
 
@@ -59,12 +60,14 @@ layout = [
                         "Contrast", ["Linear", "Log", "Power"], 
                         "Saturation", 
                         "Brightness",
+                        "Threshold",
+                        "Otsu",
                         "Calculations", ["Sum", "Subtraction", "Multiplication"],
                         ]],
               ["Histogram", ["Stretch", "Equalize"]],
               ["Filters", ["Blur", ["Uniform", "Gaussian"],
                            "Sharpen", 
-                           "Edge detection", ["Sobel", "Previtt", "Roberts", "Laplacian", "LoG"],
+                           "Edge detection", ["Sobel", "Previtt", "Roberts", "Laplacian", "LoG", "Canny"],
                            "Custom",
                         ]]
               ])],
@@ -74,18 +77,21 @@ layout = [
     ],
 ]
 
-window, window_custom = sg.Window("tinyGIMP", layout, size=WINDOW_SIZE, finalize=True), None
+
+layout_kernel = [[sg.Push(), sg.Input(0.0, key=key)]
+        for key in np.arange(25)] + [[sg.Push(), sg.Button('Send')]]
+
+
+window, window2 = sg.Window("tinyGIMP", layout, size=WINDOW_SIZE, finalize=True), None
 
 while True:
     event, values = window.read()
 
     if event == sg.WIN_CLOSED or event == 'Exit':
         window.close()
-        #NOTE if closing win_custom, mark as closed
-        if window == window_custom:  
-            window_custom = None
-        #NOTE if closing win, exit program
-        elif window == window:  
+        if window == window2:  # if closing win 2, mark as closed
+            window2 = None
+        elif window == window:  # if closing win 1, exit program
             break
     
     elif event == "Open":
@@ -100,11 +106,10 @@ while True:
                 orginal = loaded_image
             processor = ImageProcessor(loaded_image)
             histogram = Histogram()
-            filtr = Conv()
+            filtr = Conv([[1,2,1],[2,4,2],[1,2,1]])
             upadate_window(window, loaded_image, histogram, open=True)
         else:
             continue
-
     if loaded_image is not None:
         if event == "Save":
             if filename is None:
@@ -129,7 +134,6 @@ while True:
         elif event == "Linear" or event == "Log" or event == "Power":
             factor = sg.popup_get_text("Enter a factor for the contrast", title="Contrast")
             if factor is None: continue
-            
             loaded_image = processor.contrast(float(factor), event.lower())
             upadate_window(window, loaded_image, histogram)
 
@@ -139,14 +143,12 @@ while True:
             else:
                 percent = sg.popup_get_text("Enter a percent for the saturation (0, 1)", title="Saturation")
                 if percent is None: continue
-                
                 loaded_image = processor.saturation(float(percent))
                 upadate_window(window, loaded_image, histogram)
 
         elif event == "Brightness":
             value = sg.popup_get_text("Enter a value to add or subtract from brightness (-255, 255)", title="Brightness")
             if value is None: continue
-            
             loaded_image = processor.brightness(int(value))
             upadate_window(window, loaded_image, histogram)
 
@@ -156,7 +158,6 @@ while True:
             if filename_calc is not None:
                 img_to_calc = ImageLoader.load(filename_calc)
                 if img_to_calc is None: continue
-                
                 loaded_image = processor.calculations(img_to_calc, event.lower())
                 upadate_window(window, loaded_image, histogram)
 
@@ -208,23 +209,61 @@ while True:
 
             loaded_image = filtr.edge_detection(loaded_image, event.lower(), kernel, sigma)
             upadate_window(window, loaded_image, histogram)
-        
-        elif event == "Custom" and not window_custom:
-            kernel= int(sg.popup_get_text("Enter a kernel size", title="Custom"))
-            
-            layer_custom = [[sg.Column([[sg.Push(), sg.Input(0.0, key=key, size=(5, 5))] for key in range(kernel)],
-                                   pad=(5, 10), key='STATS') for _ in range(kernel)], [sg.Push(), sg.Button('Apply')]]
-            
-            window_custom = sg.Window("Custom kernel", layer_custom, size=(70*kernel,40*kernel+30), finalize=True)
-            _, values = window_custom.read()
-            
-            filtr.kernel = np.asarray(list(map(lambda x: float(x[1]),values.items()))).reshape((kernel, kernel)).T
-            
-            window_custom.close()
-            window_custom = None
 
-            loaded_image = filtr.custom(loaded_image)
+        elif event == "Canny":
+            canny_layout = [
+                [sg.Text("Blur strength"), sg.InputText(0.0, key="blur_strength")],
+                [sg.Text("High threshold ratio"), sg.InputText(0.0 ,key="high_threshold_ratio")],
+                [sg.Text("Low threshold ratio"), sg.InputText(0.0, key="low_threshold_ratio")],
+                [sg.Text("Strong pixel value"), sg.InputText(0.0 ,key="strong_pixel")],
+                [sg.Text("Weak pixel value"), sg.InputText(0.0 ,key="weak_pixel")],
+                [sg.Button("Apply")]
+            ]
+            window2 = sg.Window("Canny", canny_layout)
+            _, values2 = window2.read()
+            for key in values2:
+                if key == "blur_strength":
+                    values2[key] = int(values2[key])
+                else:
+                    values2[key] = float(values2[key])
+            window2.close()
+            window2 = None
+
+            loaded_image = processor.canny(**values2)
             upadate_window(window, loaded_image, histogram)
+        
+        elif event == "Custom" and not window2:
+            kernel_size = int(sg.popup_get_text("Enter a kernel size", title="Custom"))
+            layer_custom = [[sg.Column([[sg.Push(), sg.Input(0.0, key=key, size=(5, 5))] for key in range(kernel_size)],
+                                   pad=(5, 10), key='STATS') for _ in range(kernel_size)], [sg.Push(), sg.Button('Apply')]]
+            window2 = sg.Window("Custom kernel", layer_custom, size=(70*kernel_size,40*kernel_size+30), finalize=True)
+            _, values = window2.read()
+            custom_kernel = np.asarray(list(map(lambda x: float(x[1]),values.items()))).reshape((kernel_size, kernel_size)).T
+            window2.close()
+            window2 = None
+
+            loaded_image = filtr.custom(loaded_image, custom_kernel)
+            upadate_window(window, loaded_image, histogram)
+
+        elif event == "Threshold":
+            threshold = int(sg.popup_get_text("Enter a threshold (0, 255)", title="Threshold"))
+            
+            if len(loaded_image.shape) != 2:
+                loaded_image = processor.desaturate()
+                processor.img = loaded_image
+            
+            loaded_image = processor.threshold(threshold)
+            upadate_window(window, loaded_image, histogram)
+        
+        elif event == "Otsu":
+            if len(loaded_image.shape) != 2:
+                loaded_image = processor.desaturate()
+                processor.img = loaded_image
+            
+            loaded_image, threshold = processor.otsu()
+            upadate_window(window, loaded_image, histogram)
+            sg.popup(f"Threshold value: {threshold:.3f}")
+            
 
         processor.img = loaded_image
     else:
