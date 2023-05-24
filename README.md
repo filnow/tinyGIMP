@@ -19,4 +19,11 @@ The goal is to create a simple window application with all essential algorithms 
 
 * Creating a class that allows to define custom convolution mask, adding filters: uniform blur, gaussian blur, sharpen, Sobel, Previtt, Roberts, Laplacian, LoG
 
-* Implementation of Canny algorithm 
+
+* Implementation of Canny algorithm with interface
+
+
+* Implementation of Hough transformation with slider interface for setting the threshold
+
+
+* Implementation of Harris algorithm for corner detection along with the thresholding interface

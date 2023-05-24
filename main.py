@@ -67,7 +67,8 @@ layout = [
               ["Histogram", ["Stretch", "Equalize"]],
               ["Filters", ["Blur", ["Uniform", "Gaussian"],
                            "Sharpen", 
-                           "Edge detection", ["Sobel", "Previtt", "Roberts", "Laplacian", "LoG", "Canny"],
+                           "Edge detection", ["Sobel", "Previtt", "Roberts", "Laplacian", "LoG", "Canny", "Hough"],
+                           "Harris Corner Detection",
                            "Custom",
                         ]]
               ])],
@@ -232,6 +233,52 @@ while True:
             loaded_image = processor.canny(**values2)
             upadate_window(window, loaded_image, histogram)
         
+        elif event == "Hough":
+            hough_layout = [[
+                sg.Slider(range=(0, 255), 
+                          default_value=0, 
+                          orientation='h',
+                          enable_events=True, 
+                          size=(40, 15), 
+                          key='threshold'),
+            ]]
+            window2 = sg.Window("Hough", hough_layout)
+            while True:
+                event2, values2 = window2.read()
+                if event2 == 'threshold':
+                    values2['threshold'] = int(values2['threshold'])
+                    loaded_image = processor.hough(threshold=values2['threshold'])
+                    upadate_window(window, loaded_image, histogram)
+                elif event2 == sg.WIN_CLOSED:
+                    break
+
+            window2.close()
+            window2 = None
+
+        elif event == "Harris Corner Detection":
+            harrir_layout = [[
+                sg.Slider(range=(0, 1),
+                          tick_interval=0.05,
+                          resolution=0.05,
+                          default_value=1.0,
+                          orientation='h',
+                          enable_events=True,
+                          size=(40, 15),
+                          key='threshold'),
+            ]]
+            window2 = sg.Window("Harris Corner Detection", harrir_layout)
+            while True:
+                event2, values2 = window2.read()
+                if event2 == 'threshold':
+                    values2['threshold'] = float(values2['threshold'])
+                    loaded_image = processor.harris(threshold=values2['threshold'])
+                    upadate_window(window, loaded_image, histogram)
+                elif event2 == sg.WIN_CLOSED:
+                    break
+
+            window2.close()
+            window2 = None
+
         elif event == "Custom" and not window2:
             kernel_size = int(sg.popup_get_text("Enter a kernel size", title="Custom"))
             layer_custom = [[sg.Column([[sg.Push(), sg.Input(0.0, key=key, size=(5, 5))] for key in range(kernel_size)],

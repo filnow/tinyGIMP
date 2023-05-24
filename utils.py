@@ -207,6 +207,56 @@ class ImageProcessor:
 
         return res.astype(np.uint8)
 
+    #NOTE: resources: https://docs.opencv.org/3.4/d9/db0/tutorial_hough_lines.html
+    def hough(self,
+                rho: float = 1,
+                theta: float = np.pi / 180,
+                threshold: int = 150,
+                line_color: tuple = (0, 0, 255),
+                line_thickness: int = 2,
+                ) -> np.ndarray:
+        img = self.img.copy()
+        edges = self.canny()
+        lines = cv2.HoughLines(edges, rho, theta, threshold, None, 0, 0)
+        if lines is not None:
+            for i in range(0, len(lines)):
+                rho_val = lines[i][0][0]
+                theta_val = lines[i][0][1]
+
+                a = np.cos(theta_val)
+                b = np.sin(theta_val)
+                x0 = a * rho_val
+                y0 = b * rho_val
+                pt1 = (int(x0 + 1000*(-b)), int(y0 + 1000*(a)))
+                pt2 = (int(x0 - 1000*(-b)), int(y0 - 1000*(a)))
+                cv2.line(img, pt1, pt2, line_color, line_thickness, cv2.LINE_AA)
+        
+        return img
+
+
+    def harris(self, threshold):
+        img = self.img.copy()
+        gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+        gray = np.float32(gray)
+
+        # Detect corners
+        dst = cv2.cornerHarris(gray, 2, 3, 0.04)
+
+        # Dilate corner image to enhance corner points
+        dst = cv2.dilate(dst, None)
+
+        thresh = threshold * dst.max()
+
+        # Create an image copy to draw corners on
+        corner_image = img.copy()
+        # Iterate through all the corners and draw them on the image (if they pass the threshold)
+        for j in range(0, dst.shape[0]):
+            for i in range(0, dst.shape[1]):
+                if (dst[j, i] > thresh):
+                    # image, center pt, radius, color, thickness
+                    cv2.circle(corner_image, (i, j), 1, (0, 255, 0), 1)
+        return corner_image
+
 
 # NOTE: resources: https://docs.opencv.org/3.4/d8/dbc/tutorial_histogram_calculation.html
 class Histogram:
