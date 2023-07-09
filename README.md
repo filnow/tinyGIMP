@@ -27,3 +27,9 @@ The goal is to create a simple window application with all essential algorithms 
 
 
 * Implementation of Harris algorithm for corner detection along with the thresholding interface
+
+
+* Implementation of watershed segmentation by embedding using the Vincent-Soille algorithm
+
+
+* Morphological operations: dilation, erosion, hit and miss, bold, rub

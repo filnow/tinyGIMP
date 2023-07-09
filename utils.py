@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 import cv2
 import numpy as np
 
@@ -257,6 +257,90 @@ class ImageProcessor:
                     cv2.circle(corner_image, (i, j), 1, (0, 255, 0), 1)
         return corner_image
 
+    @staticmethod
+    def get_region(image, x, y):
+
+        regions = {}
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                if i == 0 and j == 0:
+                    continue
+                if x + i < 0 or y + j < 0:
+                    continue
+                if x + i >= image.shape[0] or y + j >= image.shape[1]:
+                    continue
+                if regions.get(image[x + i][y + j]) is None:
+                    regions[
+                        image[x + i][y + j]] = 1
+                else:
+                    regions[
+                        image[x + i][y + j]] += 1
+
+        if regions.get(0) is not None:
+            del regions[0]
+
+        keys = list(regions)
+        keys.sort()
+
+        if keys[0] == -1:
+            if len(keys) == 1:
+                return -1
+            elif len(keys) == 2:
+                return keys[1]
+            else:
+                return 0
+        else:
+            if len(keys) == 1:
+                return keys[0]
+            else:
+                return 0
+
+    def watershed_segmentation(self):
+        image = self.img
+        intensities = []
+        for x in range(image.shape[0]):
+            for y in range(image.shape[1]):
+                intensities.append((image[x][y], (x, y)))
+
+        intensities.sort()
+
+        segmented = np.full(image.shape, -1, dtype=int)
+
+        region_number = 0
+        for i in range(len(intensities)):
+
+            intensity = intensities[i][0]
+            x = intensities[i][1][0]
+            y = intensities[i][1][1]
+
+            region = self.get_region(segmented, x, y)
+
+            if region == -1:
+                region_number += 1
+                segmented[x][y] = region_number
+            elif region == 0:
+                segmented[x][y] = 0
+            else:
+                segmented[x][y] = region
+        return (segmented/np.max(segmented)*255).astype(np.uint8)
+
+    def dilation(self, size: Tuple[int, int]) -> np.ndarray:
+        element = cv2.getStructuringElement(cv2.MORPH_RECT, size)
+        return cv2.dilate(self.img, element)
+
+    def erosion(self, size: Tuple[int, int]) -> np.ndarray:
+        element = cv2.getStructuringElement(cv2.MORPH_RECT, size)
+        return cv2.erode(self.img, element)
+
+    def hit_and_miss(self, size: Tuple[int, int]) -> np.ndarray:
+        element = cv2.getStructuringElement(cv2.MORPH_RECT, size)
+        return cv2.morphologyEx(self.desaturate(), cv2.MORPH_HITMISS, element)
+
+    def bold(self, size: Tuple[int, int]) -> np.ndarray:
+        return cv2.bitwise_or(self.img, self.erosion(size))
+
+    def rub(self, size: Tuple[int, int]) -> np.ndarray:
+        return cv2.bitwise_and(self.img, cv2.bitwise_not(self.erosion(size)))
 
 # NOTE: resources: https://docs.opencv.org/3.4/d8/dbc/tutorial_histogram_calculation.html
 class Histogram:

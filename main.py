@@ -21,8 +21,9 @@ def upadate_window(window: sg.Window,
     if open:
         window["-ORGINAL-"].update(data=cv2.imencode(".png", image)[1].tobytes())
     window["-IMAGE-"].update(data=cv2.imencode(".png", image)[1].tobytes())
-    window["-HISTOGRAM_RGB-"].update(data=cv2.imencode(".png", histogram.rgb(image))[1].tobytes())
-    window["-HISTOGRAM_GREY-"].update(data=cv2.imencode(".png", histogram.grayscale(image))[1].tobytes())
+    if histogram:
+        window["-HISTOGRAM_RGB-"].update(data=cv2.imencode(".png", histogram.rgb(image))[1].tobytes())
+        window["-HISTOGRAM_GREY-"].update(data=cv2.imencode(".png", histogram.grayscale(image))[1].tobytes())
 
 layout_dashboard = [
     [sg.Frame("", 
@@ -63,6 +64,7 @@ layout = [
                         "Threshold",
                         "Otsu",
                         "Calculations", ["Sum", "Subtraction", "Multiplication"],
+                        "Watershed",
                         ]],
               ["Histogram", ["Stretch", "Equalize"]],
               ["Filters", ["Blur", ["Uniform", "Gaussian"],
@@ -70,7 +72,8 @@ layout = [
                            "Edge detection", ["Sobel", "Previtt", "Roberts", "Laplacian", "LoG", "Canny", "Hough"],
                            "Harris Corner Detection",
                            "Custom",
-                        ]]
+                        ]],
+              ["Morphology", ["Dilation", "Erosion", "Hit and Miss", "Bold", "Rub",]]
               ])],
     [
         sg.Frame("Main image", layout_image, size=(800, 900), title_location=sg.TITLE_LOCATION_TOP),
@@ -169,14 +172,14 @@ while True:
         elif event == "Equalize":
             loaded_image = histogram.equalize(processor.img)
             upadate_window(window, loaded_image, histogram)
-        
+
         elif event == "Uniform":
             kernel = int(sg.popup_get_text("Enter a kernel size", title="Uniform blur"))
             if kernel is None: continue
 
             loaded_image = filtr.uniform_blur(loaded_image, kernel)
             upadate_window(window, loaded_image, histogram)
-        
+
         elif event == "Gaussian":
             kernel = int(sg.popup_get_text("Enter a kernel size", title="Gaussian blur"))
             if kernel is None: continue
@@ -191,14 +194,14 @@ while True:
             if kernel is None: continue
             sigma = float(sg.popup_get_text("Enter a sigma value", title="Sharpen"))
             if sigma is None: continue
-        
+
             loaded_image = filtr.sharpen(loaded_image, kernel, sigma)
             upadate_window(window, loaded_image, histogram)
-        
+
         elif event == "Sobel" or event == "Previtt" or event == "Roberts" or event == "Laplacian":
             kernel = int(sg.popup_get_text("Enter a kernel size", title="LoG"))
             gray = cv2.cvtColor(loaded_image, cv2.COLOR_BGR2GRAY)
-            
+
             loaded_image = filtr.edge_detection(gray, event.lower(), kernel)
             upadate_window(window, loaded_image, histogram)
 
@@ -232,14 +235,14 @@ while True:
 
             loaded_image = processor.canny(**values2)
             upadate_window(window, loaded_image, histogram)
-        
+
         elif event == "Hough":
             hough_layout = [[
-                sg.Slider(range=(0, 255), 
-                          default_value=0, 
+                sg.Slider(range=(0, 255),
+                          default_value=0,
                           orientation='h',
-                          enable_events=True, 
-                          size=(40, 15), 
+                          enable_events=True,
+                          size=(40, 15),
                           key='threshold'),
             ]]
             window2 = sg.Window("Hough", hough_layout)
@@ -294,23 +297,55 @@ while True:
 
         elif event == "Threshold":
             threshold = int(sg.popup_get_text("Enter a threshold (0, 255)", title="Threshold"))
-            
+
             if len(loaded_image.shape) != 2:
                 loaded_image = processor.desaturate()
                 processor.img = loaded_image
-            
+
             loaded_image = processor.threshold(threshold)
             upadate_window(window, loaded_image, histogram)
-        
+
         elif event == "Otsu":
             if len(loaded_image.shape) != 2:
                 loaded_image = processor.desaturate()
                 processor.img = loaded_image
-            
+
             loaded_image, threshold = processor.otsu()
             upadate_window(window, loaded_image, histogram)
             sg.popup(f"Threshold value: {threshold:.3f}")
-            
+
+        elif event == "Watershed":
+            if len(loaded_image.shape) != 2:
+                loaded_image = processor.desaturate()
+                processor.img = loaded_image
+
+            loaded_image = processor.watershed_segmentation()
+            upadate_window(window, loaded_image, histogram)
+        
+        elif event == "Dilation":
+            kernel_size = int(sg.popup_get_text("Enter a kernel size", title="Dilation"))
+            loaded_image = processor.dilation((kernel_size, kernel_size))
+            upadate_window(window, loaded_image, histogram)
+        
+        elif event == "Erosion":
+            kernel_size = int(sg.popup_get_text("Enter a kernel size", title="Erosion"))
+            loaded_image = processor.erosion((kernel_size, kernel_size))
+            upadate_window(window, loaded_image, histogram)
+        
+        elif event == "Hit and Miss":
+            kernel_size = int(sg.popup_get_text("Enter a kernel size", title="Hit and Miss"))
+            loaded_image = processor.hit_and_miss((kernel_size, kernel_size))
+            upadate_window(window, loaded_image, histogram)
+        
+        elif event == "Bold":
+            kernel_size = int(sg.popup_get_text("Enter a kernel size", title="Bold"))
+            loaded_image = processor.bold((kernel_size, kernel_size))
+            upadate_window(window, loaded_image, histogram)
+        
+        elif event == "Rub":
+            kernel_size = int(sg.popup_get_text("Enter a kernel size", title="Rub"))
+            loaded_image = processor.rub((kernel_size, kernel_size))
+            upadate_window(window, loaded_image, histogram)
 
         processor.img = loaded_image
     else:
